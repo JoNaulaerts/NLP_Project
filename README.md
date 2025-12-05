@@ -1,4 +1,7 @@
 # NLP_Project: Personal Learning Assistant
+## Members:
+- Jo Naulaerts 
+- Abdul Salam Aldabik
 
 ## Project assignment
 ### Platform
