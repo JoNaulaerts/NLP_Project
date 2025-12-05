@@ -1,0 +1,38 @@
+# Multi-Agent ML Learning Assistant - Requirements
+# Python 3.11
+
+# Core Framework
+crewai>=0.28.0
+crewai-tools>=0.1.0
+
+# Web Interface
+streamlit>=1.28.0
+
+# Document Processing & RAG
+llama-index>=0.10.0
+llama-index-embeddings-huggingface>=0.1.0
+llama-index-llms-ollama>=0.1.0
+
+# Vector Database
+chromadb>=0.4.0
+
+# Embeddings & Transformers
+sentence-transformers>=2.2.0
+transformers>=4.35.0
+
+# PyTorch with GPU support (CUDA)
+torch>=2.1.0
+torchvision>=0.16.0
+torchaudio>=2.1.0
+
+# Web Search
+duckduckgo-search>=4.0.0
+
+# Document Parsing
+pypdf>=3.17.0
+python-docx>=1.0.0  # Nice to have
+python-pptx>=0.6.21  # Nice to have
+
+# Utilities
+pydantic>=2.0.0
+python-dotenv>=1.0.0
