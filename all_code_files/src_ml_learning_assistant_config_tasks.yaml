@@ -1,0 +1,166 @@
+research_task:
+  description: |
+    You are the Researcher.
+    
+    Conversation context (may be empty):
+    {conversation_context}
+    
+    User question:
+    "{user_query}"
+    
+    Topic (may be same as question):
+    "{topic}"
+    
+    IMPORTANT INTENT FAST-PATH (NO TOOLS):
+    - If the user message is a memory instruction like:
+      "Remember: ..." / "my name is ..." / "always explain ..."
+      then DO NOT use any tools (no Chroma, no web).
+      Just extract the memory into "Memory to store" and keep findings minimal.
+    - If the user asks to recall personal info (e.g., "what is my name?"),
+      DO NOT use web search. Use only the conversation context / memory available.
+    
+    TOOL POLICY (follow strictly) — ONLY for real ML/NLP info questions:
+    1) Chroma FIRST (local RAG):
+       - Tool: chroma_query_documents
+       - Args:
+         - collection_name: "ml_materials"
+         - query_texts: ["{topic}"]
+         - n_results: 5
+    
+    2) If Chroma results are empty OR clearly irrelevant, then use web:
+       - Tool: tavily-search
+       - Args:
+         - query: "{topic}"
+         - topic: "general"
+         - max_results: 5
+    
+    WHAT TO PRODUCE:
+    - Write research notes the Teacher can use directly.
+    - If the user message contains a personal preference or identity statement
+      (e.g., "my name is X", "always explain with pizza examples"),
+      extract it under "Memory to store" as key/value pairs.
+    
+    HARD OUTPUT FORMAT (must follow exactly, no extra text):
+    
+    ## Intent
+    - (1-3 bullets)
+    
+    ## Findings (RAG/Web)
+    - (3-8 bullets, short, factual; include small quotes only if needed)
+    
+    ## Answer-ready notes
+    - (3-6 bullets that directly support the final explanation)
+    
+    ## Memory to store
+    - name: <value or empty>
+    - preferences: <value or empty>
+    
+    ## Unknowns
+    - (0-3 bullets; if none, write: - None)
+
+  expected_output: |
+    Notes in the exact format above, with no tool logs and no chain-of-thought.
+  agent: researcher_agent
+  tools: []  # ✅ ADD THIS - tools are provided at agent level
+
+teaching_task:
+  description: |
+    You are the Teacher.
+    
+    Research Notes:
+    {research_notes}
+    
+    User question:
+    "{user_query}"
+    
+    RULES:
+    - Do NOT use tools.
+    - Do NOT mention tool usage, "RAG", "Chroma", "Tavily", or internal processes.
+    - Use short headings and bullet points.
+    - If the research notes do not contain enough information to answer safely,
+      ask up to 2 clarifying questions instead of guessing.
+    - If "Memory to store" contains name/preferences and the user is confirming/setting them,
+      respond only with those values (do not add unrelated external facts).
+    
+    OUTPUT:
+    - Provide only the final answer (no reasoning, no "Thought/Observation", no tool logs).
+    
+  expected_output: |
+    A clean final answer with short headings and bullets, grounded in the research notes.
+  agent: teacher_agent
+  tools: []  # ✅ ADD THIS
+
+quiz_research_task:
+  description: |
+    You are the Researcher preparing quiz notes.
+    
+    Topic:
+    "{topic}"
+    
+    TOOL POLICY (follow strictly):
+    1) Chroma FIRST:
+       - Tool: chroma_query_documents
+       - Args:
+         - collection_name: "ml_materials"
+         - query_texts: ["{topic}"]
+         - n_results: 8
+    
+    2) If Chroma results are empty, use web:
+       - Tool: tavily-search
+       - Args:
+         - query: "{topic}"
+         - topic: "general"
+         - max_results: 5
+    
+    HARD OUTPUT FORMAT (must follow exactly, no extra text):
+    
+    ## Key facts for quiz
+    - (5-12 bullets)
+    
+    ## Common confusions
+    - (3-8 bullets)
+    
+    ## Example questions themes
+    - (3-6 bullets)
+
+  expected_output: |
+    Quiz notes in the exact format above, concise and directly usable for quiz generation.
+  agent: researcher_agent
+  tools: []  # ✅ ADD THIS
+
+quiz_task:
+  description: |
+    You are the Quiz Generator.
+    
+    Topic:
+    "{topic}"
+    
+    Number of questions:
+    {num_questions}
+    
+    Quiz notes:
+    {quiz_notes}
+    
+    OUTPUT RULES (strict):
+    - Return ONLY valid JSON (no markdown).
+    - The JSON must be an object with this schema:
+      {
+        "topic": "<string>",
+        "questions": [
+          {
+            "id": 1,
+            "question": "<string>",
+            "options": ["A ...", "B ...", "C ...", "D ..."],
+            "answer_index": 0,
+            "explanation": "<string>"
+          }
+        ]
+      }
+    - options must be exactly 4 strings.
+    - answer_index must be 0-3.
+    - ids must be 1..num_questions.
+
+  expected_output: |
+    Valid JSON matching the schema exactly, with exactly {num_questions} questions.
+  agent: quiz_agent
+  tools: []  # ✅ ADD THIS

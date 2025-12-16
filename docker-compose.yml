@@ -1,68 +1,47 @@
-# Multi-Agent ML Learning Assistant
-# Docker Compose Configuration
-
-version: '3.8'
-
 services:
-  # Main Streamlit Application
+  chromadb:
+    image: ghcr.io/chroma-core/chroma:latest
+    container_name: chromadb
+    ports:
+      - "8000:8000"
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    volumes:
+      - chroma_data:/chroma/chroma
+    restart: unless-stopped
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ml-learning-assistant
+    container_name: ml_learning_assistant_app
     ports:
       - "8501:8501"
-    volumes:
-      - ./data:/app/data
-      - ./agents:/app/agents
-      - ./tools:/app/tools
+    env_file:
+      - .env
     environment:
-      - OLLAMA_HOST=http://ollama:11434
-    depends_on:
-      - ollama
-      - chromadb
-    networks:
-      - ml-network
-    restart: unless-stopped
-
-  # Ollama for Llama 3.2
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    ports:
-      - "11434:11434"
+      - CREWAI_STORAGE_DIR=/app/data/crewai_memory
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - OLLAMA_BASE_URL=http://192.168.0.113:11434
+      - OLLAMA_EMBEDDINGS_BASE_URL=http://192.168.0.113:11434
+      - OTEL_SDK_DISABLED=true
     volumes:
-      - ollama_data:/root/.ollama
+      - app_data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+    depends_on:
+      - chromadb
+    restart: unless-stopped
+    # GPU support
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              count: all
               capabilities: [gpu]
-    networks:
-      - ml-network
-    restart: unless-stopped
-
-  # ChromaDB Vector Database
-  chromadb:
-    image: chromadb/chroma:latest
-    container_name: chromadb
-    ports:
-      - "8000:8000"
-    volumes:
-      - chroma_data:/chroma/chroma
-    environment:
-      - IS_PERSISTENT=TRUE
-      - ANONYMIZED_TELEMETRY=FALSE
-    networks:
-      - ml-network
-    restart: unless-stopped
-
-networks:
-  ml-network:
-    driver: bridge
 
 volumes:
-  ollama_data:
   chroma_data:
+  app_data:
