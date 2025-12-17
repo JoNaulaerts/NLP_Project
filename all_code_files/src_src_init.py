@@ -1,1 +1,4 @@
-"""src package initialization"""
+"""
+ML Learning Assistant Package
+"""
+

@@ -2,45 +2,57 @@ services:
   chromadb:
     image: ghcr.io/chroma-core/chroma:latest
     container_name: chromadb
-    ports:
-      - "8000:8000"
+    ports: ["8000:8000"]
     environment:
       - IS_PERSISTENT=TRUE
       - ANONYMIZED_TELEMETRY=FALSE
     volumes:
-      - chroma_data:/chroma/chroma
+      - ./data/chromadb:/chroma/chroma  # persist data
     restart: unless-stopped
+
+  mcp_gateway:
+    image: docker/mcp-gateway:latest
+    container_name: mcp_gateway
+    command:
+      - --transport=streaming
+      - --port=3000
+      - --catalog=/root/.docker/mcp/catalogs/docker-mcp.yaml
+      - --registry=/root/.docker/mcp/registry.yaml
+      - --tools-config=/root/.docker/mcp/tools.yaml
+      - --verbose
+    # REMOVED: CHROMA_* env vars (not needed - we access chromadb directly)
+    ports: ["3000:3000"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - "C:\\Users\\abdul\\.docker\\mcp:/root/.docker/mcp"
+      - ./mcp.secrets.env:/run/mcp.secrets.env:ro
+    restart: unless-stopped
+
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
+    image: nlp_project-app:working
     container_name: ml_learning_assistant_app
     ports:
       - "8501:8501"
     env_file:
       - .env
     environment:
-      - CREWAI_STORAGE_DIR=/app/data/crewai_memory
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
-      - OLLAMA_BASE_URL=http://192.168.0.113:11434
-      - OLLAMA_EMBEDDINGS_BASE_URL=http://192.168.0.113:11434
+      - CHROMA_COLLECTION=ml_materials
+      - MCP_MODE=container_gateway
+      - MCP_GATEWAY_URL=http://mcp_gateway:3000/mcp
       - OTEL_SDK_DISABLED=true
+      - CREWAI_STORAGE_DIR=/app/data/crewai_memory
     volumes:
       - app_data:/app/data
-      - /var/run/docker.sock:/var/run/docker.sock:rw
     depends_on:
       - chromadb
+      - mcp_gateway
     restart: unless-stopped
-    # GPU support
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
 
 volumes:
   chroma_data:

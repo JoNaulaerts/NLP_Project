@@ -12,6 +12,15 @@ os.environ.setdefault("OTEL_SDK_DISABLED", "true")
 
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 
+# ✅ CRITICAL FIX: Patch MCP detection bug in crewai_tools
+try:
+    import crewai_tools.adapters.mcp_adapter as mcp_adapter
+    # Force MCP_AVAILABLE to True since we know mcp is installed
+    mcp_adapter.MCP_AVAILABLE = True
+    print("✅ MCP detection patched successfully")
+except Exception as e:
+    print(f"⚠️ Could not patch MCP detection: {e}")
+
 from crewai import Agent, Crew, Task, Process
 from crewai.project import CrewBase, agent, task
 

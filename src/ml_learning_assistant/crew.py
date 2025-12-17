@@ -3,7 +3,7 @@ import time
 import warnings
 from pathlib import Path
 from typing import Optional
-
+from crewai_tools import MCPServerAdapter
 
 # Keep these early (helps Streamlit + reduces noisy telemetry behavior)
 os.environ["CREWAI_TELEMETRY"] = "false"
@@ -12,11 +12,20 @@ os.environ.setdefault("OTEL_SDK_DISABLED", "true")
 
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 
+# ✅ CRITICAL FIX: Patch MCP detection bug in crewai_tools
+try:
+    import crewai_tools.adapters.mcp_adapter as mcp_adapter
+    # Force MCP_AVAILABLE to True since we know mcp is installed
+    mcp_adapter.MCP_AVAILABLE = True
+    print("✅ MCP detection patched successfully")
+except Exception as e:
+    print(f"⚠️ Could not patch MCP detection: {e}")
+
 from crewai import Agent, Crew, Task, Process
 from crewai.project import CrewBase, agent, task
 
 from .llm_config import get_llm, get_embeddings_config
-from .mcp_servers import docker_mcp_stdio_params
+
 
 from crewai_tools import MCPServerAdapter
 from mcp import StdioServerParameters
@@ -89,50 +98,50 @@ class MLLearningAssistantCrew:
     # -----------------------------
     # MCP tools (via adapter) - STRICT allowlist
     # -----------------------------
+
+
     def _get_mcp_tools(self):
         """
-        IMPORTANT FIX:
-        - Do NOT expose MCP management tools (mcp-exec, mcp-add, code-mode, etc.)
-          to the LLM. They cause schema mistakes and degrade chat quality.
-        - Only expose the tools the Researcher should call directly.
+        CLEAN FIX:
+        - ChromaDB RAG: direct Python access (no MCP gateway issues)
+        - Tavily web search: via MCP gateway (works fine)
         """
         if getattr(self, "_mcp_tools", None):
             return self._mcp_tools
 
-        params_dict = docker_mcp_stdio_params()
-        stdio_params = StdioServerParameters(
-            command=params_dict["command"],
-            args=params_dict["args"],
-            env=dict(os.environ),
-        )
+        # 1) Direct ChromaDB RAG tool
+        from .tools.chroma_rag_tool import ChromaRAGTool
+        chroma_tool = ChromaRAGTool()
 
-        allowed_names = {
-            # Chroma (RAG)
-            "chroma_query_documents",
-            "chroma_get_collection_count",
-            "chroma_get_collection_info",
-            # Web
-            "tavily-search",
-        }
+        # 2) Tavily via MCP gateway (only tool that needs gateway)
+        from .mcp_servers import get_mcp_server_params
+        params = get_mcp_server_params()
+        
+        is_stdio = "command" in params
+        if is_stdio:
+            from mcp import StdioServerParameters
+            server_config = StdioServerParameters(
+                command=params["command"],
+                args=params["args"],
+                env=dict(os.environ),
+            )
+        else:
+            server_config = params
 
-        # Some CrewAI versions let you request only specific tool names in MCPServerAdapter;
-        # others don’t. This try/except keeps it compatible.
+        # Only request Tavily from MCP
         try:
-            self._mcp_adapter = MCPServerAdapter(stdio_params, *sorted(allowed_names))
-            tools = self._mcp_adapter.__enter__()  # keep open
+            self._mcp_adapter = MCPServerAdapter(server_config, "tavily-search")
+            mcp_tools = list(self._mcp_adapter.__enter__())
         except TypeError:
-            self._mcp_adapter = MCPServerAdapter(stdio_params)
-            tools = self._mcp_adapter.__enter__()  # keep open
+            self._mcp_adapter = MCPServerAdapter(server_config)
+            all_tools = list(self._mcp_adapter.__enter__())
+            # Filter to only tavily
+            mcp_tools = [t for t in all_tools if "tavily" in getattr(t, "name", "").lower()]
 
-        # Enforce allowlist no matter what the adapter returned
-        filtered = []
-        for t in tools:
-            name = (getattr(t, "name", "") or "").strip()
-            if name in allowed_names:
-                filtered.append(t)
-
-        self._mcp_tools = filtered
+        # Combine: direct ChromaDB + MCP Tavily
+        self._mcp_tools = [chroma_tool] + mcp_tools
         return self._mcp_tools
+
 
     def close(self):
         try:

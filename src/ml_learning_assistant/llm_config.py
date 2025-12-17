@@ -67,9 +67,29 @@ def _get_cerebras_llm():
     )
 
 
+def _resolve_ollama_url(base_url: str) -> str:
+    """
+    Resolve Ollama URL for Docker environment.
+    Converts localhost to host.docker.internal when running in Docker.
+    """
+    # Check if running in Docker
+    in_docker = os.path.exists("/.dockerenv")
+    
+    if not in_docker:
+        return base_url
+    
+    # In Docker: convert localhost variants to host.docker.internal
+    if "localhost" in base_url or "127.0.0.1" in base_url:
+        resolved = base_url.replace("localhost", "host.docker.internal")
+        resolved = resolved.replace("127.0.0.1", "host.docker.internal")
+        print(f"🐳 Docker detected: {base_url} → {resolved}")
+        return resolved
+    
+    return base_url
+
+
 def _get_ollama_llm():
     from crewai import LLM
-    import os
     
     print("🏠 Using Local Ollama LLM")
 
@@ -81,16 +101,14 @@ def _get_ollama_llm():
     if mode == "remote":
         ollama_url = os.getenv("OLLAMA_REMOTE_URL", ollama_url)
 
-    # Docker environment detection
-    if os.path.exists("/.dockerenv") and "localhost" in ollama_url:
-        ollama_url = ollama_url.replace("localhost", "host.docker.internal")
+    # Docker environment detection - auto convert to host.docker.internal
+    ollama_url = _resolve_ollama_url(ollama_url)
 
     model = os.getenv("OLLAMA_MODEL_NAME", "llama3.2")
     
     print(f"📍 Ollama URL: {ollama_url}")
     print(f"🤖 Model: {model}")
     
-    # Add is_litellm flag to force proper initialization
     return LLM(
         model=f"ollama/{model}",
         base_url=ollama_url,
@@ -98,9 +116,7 @@ def _get_ollama_llm():
         max_tokens=4096,
         timeout=120,
         max_retries=3,
-        is_litellm=True,  # ← Add this
     )
-
 
 
 def _get_ollama_llm_direct():
@@ -113,9 +129,7 @@ def _get_ollama_llm_direct():
         print("🔧 Using direct LiteLLM fallback")
         
         ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        
-        if os.path.exists("/.dockerenv") and "localhost" in ollama_url:
-            ollama_url = ollama_url.replace("localhost", "host.docker.internal")
+        ollama_url = _resolve_ollama_url(ollama_url)
         
         model = os.getenv("OLLAMA_MODEL_NAME", "llama3.2")
         
@@ -139,19 +153,21 @@ def _get_ollama_llm_direct():
 
 def get_embeddings_config() -> dict:
     """
-    Embeddings configuration using Ollama (keep local even if LLM is remote).
+    Embeddings configuration using Ollama.
     """
-    ollama_url = os.getenv("OLLAMA_EMBEDDINGS_BASE_URL",
-                           os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"))
+    ollama_base = os.getenv(
+        "OLLAMA_EMBEDDINGS_BASE_URL",
+        os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    )
 
-    # Docker environment detection (only rewrite if we're actually using localhost)
-    if os.path.exists("/.dockerenv") and "localhost" in ollama_url:
-        ollama_url = ollama_url.replace("localhost", "host.docker.internal")
+    ollama_base = _resolve_ollama_url(ollama_base).rstrip("/")
 
     return {
         "provider": "ollama",
         "config": {
-            "model": os.getenv("OLLAMA_EMBEDDING_MODEL", "mxbai-embed-large"),
-            "base_url": ollama_url,
+            "model": os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text"),
+            # CrewAI Ollama embedder often expects `url` + full /api/embeddings endpoint
+            "url": f"{ollama_base}/api/embeddings",
         },
     }
+

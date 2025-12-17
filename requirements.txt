@@ -1,40 +1,48 @@
-# Core Framework
+# Core framework
 crewai==1.7.0
 crewai-tools==1.7.0
 
-# LLM & Language Models
+# MCP client lib (your app talks to the gateway)
+mcp==1.16.0
+mcpadapt
+
+# LangChain stack
 langchain==1.2.0
-langchain-community==0.4.1
 langchain-core==1.2.1
+langchain-community==0.4.1
 langchain-text-splitters==1.1.0
 langchain-ollama==1.0.0
-litellm==1.80.0
 
-# MCP
-mcp==1.16.0
+# LiteLLM (keep your compatibility constraint)
+litellm>=1.0.0,<1.70.0
 
-# Vector Database
+# Vector DB client
 chromadb==1.1.1
 
-# Document Processing
+# Document processing
 pypdf==6.4.1
 
-# Web Framework
+# Web framework
 streamlit==1.52.1
 
-# Environment & Configuration
+# Env/config + HTTP
 python-dotenv==1.1.1
 pydantic==2.11.10
-
-# HTTP Client
 httpx==0.28.1
 
-# Ollama
-ollama==0.6.1
-
-# Sentence Transformers
+# Embeddings / NLP
 sentence-transformers==5.1.2
 
-# Core deps
-numpy==2.3.3
+# Data
+numpy>=1.26.2,<2.0.0           # Compatible with all dependencies (FIXED)
 pandas==2.2.3
+openpyxl==3.1.5                # For Excel/spreadsheet support
+
+# Optional: only keep this if your code imports/uses it
+mcp-proxy
+
+# Document processing
+python-docx==1.2.0             # Word documents
+unstructured==0.16.9           # Multiple formats
+filetype==1.2.0                # File type detection (cross-platform)
+python-pptx==0.6.23            # PowerPoint support

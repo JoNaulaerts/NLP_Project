@@ -34,7 +34,7 @@ def upload_pdf_to_chromadb(filepath: str) -> Dict[str, Any]:
 
         client = chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)
         collection = client.get_or_create_collection(name=COLLECTION_NAME)
-        collection.add(ids=ids, documents=documents, metadatas=metadatas)
+        collection.upsert(ids=ids, documents=documents, metadatas=metadatas)
 
         return {
             "success": True,

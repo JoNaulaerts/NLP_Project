@@ -1,17 +1,23 @@
-"""
-MCP Server configuration (Docker MCP Gateway via STDIO).
+import os
 
-We keep this file minimal and deterministic.
-"""
+def get_mcp_server_params():
+    """
+    Returns MCP server params in the format MCPServerAdapter expects.
+    - For container_gateway: dict with 'url' and 'transport' (streamable-http)
+    - For local: dict with 'command' and 'args' (stdio)
+    """
+    mode = (os.getenv("MCP_MODE", "local") or "local").strip().lower()
 
-def docker_mcp_stdio_params():
-    """
-    Returns a plain dict of stdio params compatible with MCPServerAdapter.
-    (Avoids CrewAI native MCP caching edge cases.)
-    """
+    if mode == "container_gateway":
+        # Streamable HTTP: return url + transport
+        gateway_url = os.getenv("MCP_GATEWAY_URL", "http://mcp_gateway:3000/mcp")
+        return {
+            "url": gateway_url,
+            "transport": "streamable-http",
+        }
+
+    # Local stdio (requires docker mcp CLI on host)
     return {
         "command": "docker",
         "args": ["mcp", "gateway", "run"],
-        # env is intentionally omitted here; Docker MCP will inherit your process env.
-        # If you need to force env vars, pass them in the adapter call site.
     }
