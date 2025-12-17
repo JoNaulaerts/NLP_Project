@@ -13,7 +13,7 @@ from langchain_community.document_loaders import (
     UnstructuredWordDocumentLoader,
     CSVLoader,
 )
-from langchain.schema import Document
+from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 CHROMA_HOST = os.getenv("CHROMA_HOST", "chromadb")
